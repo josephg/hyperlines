@@ -1,21 +1,6 @@
-// const assert = require('assert')
-import assert from 'assert'
-import { Point, Expression, Block } from './types'
-import { ExecutionCtx, queueBlock, run } from './context';
+import { run } from './context';
+import { block, lit, variable, lambda, call } from './dsl';
 import { blockToStr } from './printer';
-
-
-
-// queueBlockContents(subscope({}, {x: 123, y: 321})
-
-
-
-const lit = (value: number | Point): Expression => ({type: 'literal', value})
-lit.vec = (x: number, y: number) => call('Vec', lit(x), lit(y))
-const variable = (name: string): Expression => ({type: 'variable', name})
-const call = (fnName: string, ...args: Expression[]): Expression => ({type: 'call', callee: variable(fnName), args})
-const block = (name: string, args: Expression[], bindingNames: string[] = [], contents: Block[] = []) => ({name, args, bindingNames, contents})
-const lambda = (argNames: string[], expr: Expression): Expression => ({type: 'lambda', argNames, expr})
 
 const coolprog = block('_get_hyp', [], ['t'], [
   block('grid', [lit(2), lit(2)], ['g'], [
