@@ -29,12 +29,12 @@ type Expression = {
   type: 'literal'
   value: number
 } | {
+  type: 'variable'
+  name: string
+} | {
   type: 'call'
   callee: Expression
   args: Expression[]
-} | {
-  type: 'variable'
-  name: string
 }
 
 interface Block {
@@ -62,6 +62,7 @@ globalFunctionsList.forEach(f => {globalFunctions[f.name] = f})
 const globalBlocksList: BlockDef[] = [{
   name: '_get_hyp',
   argTypes: [Type.Scalar],
+  bindingTypes: [],
   fn: (args: any[], scope: Scope, bindingNames: string[], contents: Block[]) => {
     queueBlockContents(scope, contents)
   }
@@ -75,6 +76,7 @@ const globalBlocksList: BlockDef[] = [{
 }, {
   name: 'grid',
   argTypes: [Type.Natural, Type.Natural],
+  bindingTypes: [],
   fn: (args, scope, bindingNames, contents) => {
     const [nx, ny] = args
     const points: [number, number][] = []
@@ -84,6 +86,7 @@ const globalBlocksList: BlockDef[] = [{
 }, {
   name: 'each',
   argTypes: [Type.Vec2Array],
+  bindingTypes: [],
   fn: (args, scope, bindingNames, contents) => {
     const [arr] = args
     for (const a of arr) {
@@ -131,6 +134,31 @@ const run = (program: Block) => {
   queueBlockContents(globalFunctions, [program])
 }
 
+const exprToStr = (expr: Expression): string => {
+  switch (expr.type) {
+    case 'literal': {
+      return Array.isArray(expr.value)
+        ? `[${expr.value.join(', ')}]`
+        : `${expr.value}`
+    }
+    case 'variable': return expr.name
+    case 'call':
+      return `${exprToStr(expr.callee)}(${expr.args.map(exprToStr).join(', ')})`
+  }
+}
+
+const blockToStr = (block: Block, indent = ''): string => {
+  const fnPart = `${indent}${block.name} (${block.args.map(exprToStr)})`
+  if (globalBlocks[block.name].bindingTypes == null) {
+    return fnPart + '\n'
+  } else {
+    const blockHead = ` {|${block.bindingNames.join(', ')}|\n`
+    const childIndent = indent + '  '
+    const childBlocks = block.contents.map(b => blockToStr(b, childIndent)).join('\n')
+    // const ret = block.return `${indent}return ${exprToStr(
+    return fnPart + blockHead + childBlocks + `${indent}}\n`
+  }
+}
 
 
 const coolprog: Block = {
@@ -197,3 +225,5 @@ const coolprog: Block = {
 }
 
 run(coolprog)
+
+console.log(blockToStr(coolprog))
