@@ -9,6 +9,7 @@ enum Type {
   Vec2Array,
   ScalarArray,
   NaturalArray,
+  VecToVec,
 }
 
 interface FunctionDef {
@@ -35,6 +36,10 @@ type Expression = {
   type: 'call'
   callee: Expression
   args: Expression[]
+} | {
+  type: 'lambda',
+  argNames: string[],
+  expr: Expression
 }
 
 interface Block {
@@ -98,8 +103,13 @@ const globalBlocksList: BlockDef[] = [{
   }
 }, {
   name: 'particle',
-  argTypes: [Type.Vec2],
+  argTypes: [Type.Vec2, Type.VecToVec],
+  bindingTypes: [Type.Vec2, Type.Vec2],
   fn: (args, scope, block) => {
+    const [pos, update] = args
+    const nextPos = update(pos)
+    queueBlocks(subScope(scope, {[block.bindingNames[0]]: pos, [block.bindingNames[1]]: nextPos}), block.contents)
+    queueBlock(scope, {...block, args: [{type: 'literal', value: nextPos}, block.args[1]]})
   }
 }]
 const globalBlocks: {[k: string]: BlockDef} = {}
@@ -120,6 +130,13 @@ const evaluate = (scope: Scope, expr: Expression): any => {
       assert(callee != null && typeof callee === 'object')
       const args = expr.args.map(arg => evaluate(scope, arg))
       return callee.fn(...args)
+    }
+    case 'lambda': {
+      return (...args: any[]) => {
+        const childScope = Object.create(scope)
+        args.forEach((a, i) => { childScope[expr.argNames[i]] = a })
+        return evaluate(childScope, expr.expr)
+      }
     }
   }
 }
@@ -155,6 +172,8 @@ const exprToStr = (expr: Expression): string => {
     case 'variable': return expr.name
     case 'call':
       return `${exprToStr(expr.callee)}(${expr.args.map(exprToStr).join(', ')})`
+    case 'lambda':
+      return `\\${expr.argNames.join(', ')} -> ${exprToStr(expr.expr)}`
   }
 }
 
@@ -173,8 +192,10 @@ const blockToStr = (block: Block, indent = ''): string => {
 
 const run = (program: Block) => {
   queueBlock(globalFunctions, program)
+  let n = 0
   while (queue.length > 0) {
     queue.shift()!()
+    if (n++ > 100) break
   }
 }
 
@@ -183,11 +204,14 @@ lit.vec = (x: number, y: number) => call('Vec', lit(x), lit(y))
 const variable = (name: string): Expression => ({type: 'variable', name})
 const call = (fnName: string, ...args: Expression[]): Expression => ({type: 'call', callee: variable(fnName), args})
 const block = (name: string, args: Expression[], bindingNames: string[] = [], contents: Block[] = []) => ({name, args, bindingNames, contents})
+const lambda = (argNames: string[], expr: Expression): Expression => ({type: 'lambda', argNames, expr})
 
 const coolprog = block('_get_hyp', [], ['t'], [
   block('grid', [lit(2), lit(2)], ['g'], [
     block('each', [variable('g')], ['p'], [
-      block('line', [variable('p'), call('addVecs', variable('p'), lit.vec(1, 0))])
+      block('particle', [variable('p'), lambda(['p0'], call('addVecs', variable('p0'), lit.vec(0, .1)))], ['p0', 'p1'], [
+        block('line', [variable('p0'), variable('p1')])
+      ])
     ])
   ])
 ])
