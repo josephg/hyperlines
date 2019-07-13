@@ -22,12 +22,12 @@ interface BlockDef {
   name: string
   argTypes: Type[]
   bindingTypes?: Type[]
-  fn: (args: any[], scope: Scope, bindingNames: string[], contents: Block[]) => void
+  fn: (args: any[], scope: Scope, block: Block) => void
 }
 
 type Expression = {
   type: 'literal'
-  value: number
+  value: number | Point
 } | {
   type: 'variable'
   name: string
@@ -44,6 +44,9 @@ interface Block {
   contents: Block[]
 }
 
+type Point = [number, number]
+
+const addVecs = ([x1, y1]: Point, [x2, y2]: Point): Point => [x1 + x2, y1 + y2]
 
 const globalFunctionsList: FunctionDef[] = [{
   name: 'Vec',
@@ -54,7 +57,7 @@ const globalFunctionsList: FunctionDef[] = [{
   name: 'addVecs',
   argTypes: [Type.Vec2, Type.Vec2],
   outputType: Type.Vec2,
-  fn: ([x1, y1], [x2, y2]) => [x1 + x2, y1 + y2]
+  fn: addVecs
 }]
 const globalFunctions: {[k: string]: FunctionDef} = {}
 globalFunctionsList.forEach(f => {globalFunctions[f.name] = f})
@@ -63,13 +66,13 @@ const globalBlocksList: BlockDef[] = [{
   name: '_get_hyp',
   argTypes: [Type.Scalar],
   bindingTypes: [],
-  fn: (args: any[], scope: Scope, bindingNames: string[], contents: Block[]) => {
-    queueBlockContents(scope, contents)
+  fn: (args, scope, block) => {
+    queueBlocks(scope, block.contents)
   }
 }, {
   name: 'line',
   argTypes: [Type.Vec2, Type.Vec2],
-  fn: (args, scope, bindingNames, contents) => {
+  fn: (args, scope, block) => {
     const [start, end] = args
     console.log('line from', start, end)
   },
@@ -77,21 +80,26 @@ const globalBlocksList: BlockDef[] = [{
   name: 'grid',
   argTypes: [Type.Natural, Type.Natural],
   bindingTypes: [],
-  fn: (args, scope, bindingNames, contents) => {
+  fn: (args, scope, block) => {
     const [nx, ny] = args
     const points: [number, number][] = []
     for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) points.push([x/(nx === 1 ? 1 : nx-1),y/(ny === 1 ? 1 : ny-1)])
-    queueBlockContents(subScope(scope, {[bindingNames[0]]: points}), contents)
+    queueBlocks(subScope(scope, {[block.bindingNames[0]]: points}), block.contents)
   }
 }, {
   name: 'each',
   argTypes: [Type.Vec2Array],
   bindingTypes: [],
-  fn: (args, scope, bindingNames, contents) => {
+  fn: (args, scope, block) => {
     const [arr] = args
     for (const a of arr) {
-      queueBlockContents(subScope(scope, {[bindingNames[0]]: a}), contents)
+      queueBlocks(subScope(scope, {[block.bindingNames[0]]: a}), block.contents)
     }
+  }
+}, {
+  name: 'particle',
+  argTypes: [Type.Vec2],
+  fn: (args, scope, block) => {
   }
 }]
 const globalBlocks: {[k: string]: BlockDef} = {}
@@ -122,16 +130,19 @@ const subScope = (parent: Scope, child: Scope) => (
   Object.assign(Object.create(parent, {}), child)
 )
 
-const queueBlockContents = (scope: Scope, contents: Block[]) => {
-  contents.forEach(block => {
+const queue: (() => void)[] = []
+
+const queueBlock = (scope: Scope, block: Block) => {
+  queue.push(() => {
     const blockDef = globalBlocks[block.name]
     const args = block.args.map(a => evaluate(scope, a))
-    blockDef.fn(args, scope, block.bindingNames, block.contents)
+    blockDef.fn(args, scope, block)
   })
 }
 
-const run = (program: Block) => {
-  queueBlockContents(globalFunctions, [program])
+const queueBlocks = (scope: Scope, contents: Block[]) => {
+  for (const block of contents)
+    queueBlock(scope, block)
 }
 
 const exprToStr = (expr: Expression): string => {
@@ -160,69 +171,26 @@ const blockToStr = (block: Block, indent = ''): string => {
   }
 }
 
-
-const coolprog: Block = {
-  name: '_get_hyp',
-  bindingNames: ['t'],
-  args: [],
-  contents: [
-    {
-      name: 'grid',
-      args: [{
-        type: 'literal',
-        value: 2
-      }, {
-        type: 'literal',
-        value: 2
-      }],
-      bindingNames: ['g'],
-      contents: [
-        {
-          name: 'each',
-          args: [{
-            type: 'variable',
-            name: 'g',
-          }],
-          bindingNames: ['p'],
-          contents: [
-            {
-              name: 'line',
-              bindingNames: [],
-              args: [{
-                type: 'variable',
-                name: 'p'
-              }, {
-                type: 'call',
-                callee: {
-                  type: 'variable',
-                  name: 'addVecs',
-                },
-                args: [
-                  {
-                    type: 'variable',
-                    name: 'p'
-                  },
-                  {
-                    type: 'call',
-                    callee: {
-                      type: 'variable',
-                      name: 'Vec',
-                    },
-                    args: [
-                      { type: 'literal', value: 1 },
-                      { type: 'literal', value: 0 },
-                    ]
-                  }
-                ]
-              }],
-              contents: []
-            }
-          ]
-        }
-      ]
-    },
-  ]
+const run = (program: Block) => {
+  queueBlock(globalFunctions, program)
+  while (queue.length > 0) {
+    queue.shift()!()
+  }
 }
+
+const lit = (value: number | Point): Expression => ({type: 'literal', value})
+lit.vec = (x: number, y: number) => call('Vec', lit(x), lit(y))
+const variable = (name: string): Expression => ({type: 'variable', name})
+const call = (fnName: string, ...args: Expression[]): Expression => ({type: 'call', callee: variable(fnName), args})
+const block = (name: string, args: Expression[], bindingNames: string[] = [], contents: Block[] = []) => ({name, args, bindingNames, contents})
+
+const coolprog = block('_get_hyp', [], ['t'], [
+  block('grid', [lit(2), lit(2)], ['g'], [
+    block('each', [variable('g')], ['p'], [
+      block('line', [variable('p'), call('addVecs', variable('p'), lit.vec(1, 0))])
+    ])
+  ])
+])
 
 run(coolprog)
 
