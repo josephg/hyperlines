@@ -1,6 +1,7 @@
 import { run } from './context';
 import { block, lit, variable, lambda, call } from './dsl';
 import { blockToStr } from './printer';
+import { transform } from './generator';
 
 const coolprog = block('_get_hyp', [], ['t'], [
   block('grid', [lit(2), lit(2)], ['g'], [
@@ -15,3 +16,5 @@ const coolprog = block('_get_hyp', [], ['t'], [
 run(coolprog)
 
 console.log(blockToStr(coolprog))
+
+transform(coolprog)

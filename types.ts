@@ -4,11 +4,18 @@ export enum Type {
   Scalar,
   Natural,
   Vec2,
-  Function,
   Vec2Array,
   ScalarArray,
   NaturalArray,
   VecToVec,
+}
+
+export const returnTypeOf: {[k: number]: Type} = {
+  [Type.VecToVec]: Type.Vec2
+}
+
+export const argTypeOf: {[k: number]: Type[]} = {
+  [Type.VecToVec]: [Type.Vec2]
 }
 
 
@@ -34,7 +41,8 @@ export type Expression = {
   name: string
 } | {
   type: 'call'
-  callee: Expression
+  // callee: Expression
+  callee: string
   args: Expression[]
 } | {
   type: 'lambda',

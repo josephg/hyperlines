@@ -2,7 +2,7 @@ import { Block, Expression } from "./types";
 import { globalBlocks } from "./globals";
 
 
-const exprToStr = (expr: Expression): string => {
+export const exprToStr = (expr: Expression): string => {
   switch (expr.type) {
     case 'literal': {
       return Array.isArray(expr.value)
@@ -11,7 +11,7 @@ const exprToStr = (expr: Expression): string => {
     }
     case 'variable': return expr.name
     case 'call':
-      return `${exprToStr(expr.callee)}(${expr.args.map(exprToStr).join(', ')})`
+      return `${expr.callee}(${expr.args.map(exprToStr).join(', ')})`
     case 'lambda':
       return `\\${expr.argNames.join(', ')} -> ${exprToStr(expr.expr)}`
   }

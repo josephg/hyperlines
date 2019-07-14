@@ -17,7 +17,8 @@ const evaluate = (scope: Scope, expr: Expression): any => {
       return val
     }
     case 'call': {
-      const callee = evaluate(scope, expr.callee) as FunctionDef
+      // const callee = evaluate(scope, expr.callee) as FunctionDef
+      const callee = globalFunctions[expr.callee]
       assert(callee != null && typeof callee === 'object')
       const args = expr.args.map(arg => evaluate(scope, arg))
       return callee.fn(...args)
