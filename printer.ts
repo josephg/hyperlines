@@ -24,7 +24,7 @@ export const blockToStr = (block: Block, indent = ''): string => {
   } else {
     const blockHead = ` {|${block.bindingNames.join(', ')}|\n`
     const childIndent = indent + '  '
-    const childBlocks = block.contents.map(b => blockToStr(b, childIndent)).join('\n')
+    const childBlocks = block.contents.map(b => blockToStr(b, childIndent)).join('')
     // const ret = block.return `${indent}return ${exprToStr(
     return fnPart + blockHead + childBlocks + `${indent}}\n`
   }
