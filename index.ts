@@ -17,4 +17,4 @@ run(coolprog)
 
 console.log(blockToStr(coolprog))
 
-transform(coolprog)
+console.log(blockToStr(transform(coolprog)))
