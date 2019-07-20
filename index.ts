@@ -2,7 +2,7 @@ import { run } from './context';
 import { block, lit, variable, lambda, call } from './dsl';
 import { blockToStr } from './printer';
 import { transform } from './generator';
-import { Point } from './types';
+import { Point, Block } from './types';
 
 const coolprog = block('_get_hyp', [], ['t'], [
   /*
@@ -57,12 +57,26 @@ function render(lines: [Point, Point][]): SVGElement {
   return svg
 }
 
+function go() {
+  let prog = coolprog
 
-const coolerprog = transform(coolprog)
-const lines = run(coolerprog)
-console.log(blockToStr(coolerprog))
-const svg = render(lines)
-document.body.appendChild(svg)
+  function doTheThing(prog: Block): void {
+    const svgs = document.getElementsByTagNameNS(svgns, "svg")
+    if (svgs.length) svgs[0].remove()
+    const lines = run(prog)
+    console.log(blockToStr(prog))
+    const svg = render(lines)
+    document.body.appendChild(svg)
+  }
+
+  window.onload = () => doTheThing(prog)
+  window.onkeypress = (e) => {
+    prog = transform(prog)
+    doTheThing(prog)
+  }
+}
+go()
+
 /*
 
 console.log(blockToStr(coolprog))
