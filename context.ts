@@ -56,4 +56,5 @@ export const run = (program: Block) => {
     ctx.queue.shift()!()
     if (n++ > 100) break
   }
+  return ctx.lines
 }

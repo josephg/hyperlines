@@ -33,7 +33,7 @@ const globalBlocksList: BlockDef[] = [{
   argTypes: [Type.Vec2, Type.Vec2],
   fn: (ctx, args, scope, block) => {
     const [start, end] = args
-    console.log('line from', start, end)
+    ctx.lines.push([start, end])
   },
 }, {
   name: 'grid',
